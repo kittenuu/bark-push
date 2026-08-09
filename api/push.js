@@ -13,9 +13,11 @@ export default async function handler(req, res) {
 
   const url =
     `https://api.day.app/${KEY}/` +
-    `${encodeURIComponent(title || "瑾")}/` +
+    `${encodeURIComponent(title || "Claude")}/` +
     `${encodeURIComponent(body)}` +
-    `?sound=${sound || "healthnotification"}`;
+          `?sound=${sound || "healthnotification"}` +
+      `&icon=${encodeURIComponent("https://jdkysvkempdyilicpkdn.supabase.co/storage/v1/object/public/stickers/cute/quality_restoration_20260809091244948.jpeg")}`;
+
 
 
   try {
