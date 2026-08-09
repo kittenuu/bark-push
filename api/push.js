@@ -13,9 +13,10 @@ export default async function handler(req, res) {
 
   const url =
     `https://api.day.app/${KEY}/` +
-    `${encodeURIComponent(title || "怀瑾")}/` +
+    `${encodeURIComponent(title || "瑾")}/` +
     `${encodeURIComponent(body)}` +
-    `?sound=${sound || "minuet"}`;
+    `?sound=${sound || "healthnotification"}`;
+
 
   try {
     const r = await fetch(url);
