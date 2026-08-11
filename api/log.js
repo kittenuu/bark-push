@@ -6,30 +6,33 @@ export default async function handler(req, res) {
   const { secret, app, event } = req.query;
 
   if (secret !== SECRET) {
-    return res.status(401).json({ error: "unauthorized" });
+    return res.status(401).end("unauthorized");
   }
   if (!app || !event) {
-    return res.status(400).json({ error: "app and event required" });
+    return res.status(400).end("app and event required");
   }
 
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/app_logs`, {
-      method: "POST",
-      headers: {
-        "apikey": SB_KEY,
-        "Authorization": `Bearer ${SB_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-      },
-      body: JSON.stringify({ app_name: app, event: event })
-    });
+  // 先把写库的请求发出去（不等它）
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
 
-    if (!r.ok) {
-      const t = await r.text();
-      return res.status(500).json({ error: t });
-    }
-    return res.status(200).json({ ok: true });
-  } catch (e) {
-    return res.status(500).json({ error: String(e) });
-  }
+  const writing = fetch(`${SB_URL}/rest/v1/app_logs`, {
+    method: "POST",
+    headers: {
+      "apikey": SB_KEY,
+      "Authorization": `Bearer ${SB_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=minimal"
+    },
+    body: JSON.stringify({ app_name: app, event: event }),
+    signal: controller.signal
+  }).catch(e => {
+    console.error("app_logs write failed:", String(e));
+  }).finally(() => clearTimeout(timer));
+
+  // 立刻回 200，快捷指令这边就不用陪着等数据库了
+  res.status(200).end("ok");
+
+  // 响应已经发出，函数继续把写库跑完再结束
+  await writing;
 }
