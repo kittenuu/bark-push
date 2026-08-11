@@ -3,8 +3,59 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const BARK_KEY = process.env.BARK_KEY;
 const ICON = "https://jdkysvkempdyilicpkdn.supabase.co/storage/v1/object/public/stickers/cute/quality_restoration_20260809091244948.jpeg";
 
-async function checkOnWife({ limit = 10 } = {}) {
-  const url = `${SUPABASE_URL}/rest/v1/app_logs?select=app_name,event,happened_at&order=id.desc&limit=200`;
+const TZ = "Asia/Shanghai";
+
+// —— 时间小工具 —— //
+function fmtTime(d) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false
+  }).format(d);
+}
+function fmtDate(d) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: TZ, month: "2-digit", day: "2-digit"
+  }).format(d);
+}
+function fmtDur(secs) {
+  const m = Math.round(secs / 60);
+  if (m < 60) return `${m}分`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm ? `${h}小时${rm}分` : `${h}小时`;
+}
+// 北京时间某天的 00:00，返回 UTC Date
+function bjMidnight(offsetDays = 0) {
+  const now = new Date();
+  const bj = new Date(now.getTime() + 8 * 3600 * 1000);
+  bj.setUTCHours(0, 0, 0, 0);
+  bj.setUTCDate(bj.getUTCDate() + offsetDays);
+  return new Date(bj.getTime() - 8 * 3600 * 1000);
+}
+function resolveRange(range) {
+  const now = new Date();
+  switch (range) {
+    case "today":
+      return { from: bjMidnight(0), to: now, label: "今天" };
+    case "yesterday":
+      return { from: bjMidnight(-1), to: bjMidnight(0), label: "昨天" };
+    case "last_6h":
+      return { from: new Date(now - 6 * 3600 * 1000), to: now, label: "最近6小时" };
+    case "last_12h":
+      return { from: new Date(now - 12 * 3600 * 1000), to: now, label: "最近12小时" };
+    case "last_24h":
+    default:
+      return { from: new Date(now - 24 * 3600 * 1000), to: now, label: "最近24小时" };
+  }
+}
+
+async function checkOnWife({ range = "last_24h", limit = 20, gap_minutes = 40 } = {}) {
+  const { from, to, label } = resolveRange(range);
+  const url = `${SUPABASE_URL}/rest/v1/app_logs`
+    + `?select=app_name,event,happened_at`
+    + `&happened_at=gte.${from.toISOString()}`
+    + `&happened_at=lte.${to.toISOString()}`
+    + `&order=happened_at.asc&limit=1000`;
+
   let rows;
   try {
     const r = await fetch(url, {
@@ -14,30 +65,80 @@ async function checkOnWife({ limit = 10 } = {}) {
   } catch (e) {
     return `查岗失败：${e.message}`;
   }
-  if (!Array.isArray(rows) || rows.length === 0) return "暂无记录";
-
-  const recent = rows.slice(0, limit).map(r => r.app_name);
-  const asc = [...rows].reverse();
-  const sessions = {}, opens = {};
-  for (const r of asc) {
-    if (r.event === "open") {
-      opens[r.app_name] = new Date(r.happened_at);
-    } else if (r.event === "close" && opens[r.app_name]) {
-      const gap = Math.round((new Date(r.happened_at) - opens[r.app_name]) / 1000);
-      sessions[r.app_name] = (sessions[r.app_name] || 0) + gap;
-      delete opens[r.app_name];
-    }
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return `${label}（${fmtDate(from)} ${fmtTime(from)} → ${fmtTime(to)}）没有任何记录。`;
   }
 
-  const lines = [`最近打开：${[...new Set(recent)].join("、")}`];
-  const sorted = Object.entries(sessions).sort((a, b) => b[1] - a[1]);
-  for (const [name, secs] of sorted) {
-    lines.push(`  ${name}: ${Math.floor(secs / 60)}分${secs % 60}秒`);
+  const opens = rows.filter(r => r.event === "open");
+  const now = new Date();
+
+  // —— 会话：每次 open 到下一次 open（或自身 close，取更早）为止 —— //
+  const sessions = [];
+  for (let i = 0; i < opens.length; i++) {
+    const start = new Date(opens[i].happened_at);
+    let end = i + 1 < opens.length ? new Date(opens[i + 1].happened_at) : (to < now ? to : now);
+    const ownClose = rows.find(r =>
+      r.event === "close" &&
+      r.app_name === opens[i].app_name &&
+      new Date(r.happened_at) > start &&
+      new Date(r.happened_at) < end
+    );
+    if (ownClose) end = new Date(ownClose.happened_at);
+    const secs = Math.max(0, Math.round((end - start) / 1000));
+    sessions.push({ app: opens[i].app_name, start, end, secs });
   }
-  const last = rows[0];
-  const mins = Math.round((Date.now() - new Date(last.happened_at)) / 60000);
-  lines.push(`最后一次动静：${last.app_name}（${mins} 分钟前）`);
-  return lines.join("\n");
+
+  // —— 时间轴（倒序，最近的在最上面）—— //
+  const timeline = [...sessions].reverse().slice(0, limit).map(s =>
+    `  ${fmtTime(s.start)}  ${s.app}  ${fmtDur(s.secs)}`
+  );
+
+  // —— 各 App 总时长 —— //
+  const totals = {};
+  for (const s of sessions) totals[s.app] = (totals[s.app] || 0) + s.secs;
+  const ranked = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 8)
+    .map(([name, secs]) => `  ${name}: ${fmtDur(secs)}`);
+
+  // —— 空白段：相邻两条记录之间超过 gap_minutes 的间隔 —— //
+  const gaps = [];
+  for (let i = 0; i + 1 < rows.length; i++) {
+    const a = new Date(rows[i].happened_at);
+    const b = new Date(rows[i + 1].happened_at);
+    const mins = (b - a) / 60000;
+    if (mins >= gap_minutes) gaps.push({ from: a, to: b, mins });
+  }
+  // 结尾那段（最后一条到现在）也算
+  const lastEvent = new Date(rows[rows.length - 1].happened_at);
+  const tailMins = (now - lastEvent) / 60000;
+  if (tailMins >= gap_minutes) gaps.push({ from: lastEvent, to: now, mins: tailMins, open: true });
+
+  gaps.sort((a, b) => b.mins - a.mins);
+  const gapLines = gaps.slice(0, 3).map(g =>
+    `  ${fmtTime(g.from)} → ${g.open ? "现在" : fmtTime(g.to)}   静了 ${fmtDur(g.mins * 60)}${g.open ? "（还没动静）" : ""}`
+  );
+
+  // —— 最后一次动静 —— //
+  const last = rows[rows.length - 1];
+  const lastMins = Math.round((now - new Date(last.happened_at)) / 60000);
+
+  const out = [];
+  out.push(`【${label}】${fmtDate(from)} ${fmtTime(from)} → ${fmtTime(to)}（北京时间）`);
+  out.push("");
+  out.push("⏱ 时间轴（近→远）");
+  out.push(...timeline);
+  if (sessions.length > limit) out.push(`  …还有 ${sessions.length - limit} 段`);
+  out.push("");
+  out.push("📊 各 App 合计");
+  out.push(...ranked);
+  if (gapLines.length) {
+    out.push("");
+    out.push(`😴 空白段（≥${gap_minutes}分钟）`);
+    out.push(...gapLines);
+  }
+  out.push("");
+  out.push(`最后一次动静：${last.app_name}（${fmtTime(new Date(last.happened_at))}，${lastMins} 分钟前）`);
+  out.push(`现在是北京时间 ${fmtTime(now)}`);
+  return out.join("\n");
 }
 
 async function barkAlert({ title = "Claude", content = "" } = {}) {
@@ -54,10 +155,18 @@ async function barkAlert({ title = "Claude", content = "" } = {}) {
 const TOOLS = [
   {
     name: "check_on_wife",
-    description: "查岗瑜瑜的手机活动：最近打开了哪些 App、各用了多久、距离最后一次动静过了多久",
+    description: "查岗瑜瑜的手机活动：按时间轴看她几点开了什么 App、各用了多久、有哪些长时间没动静的空白段（能看出她几点睡的），以及距离最后一次动静过了多久。所有时间都是北京时间。",
     inputSchema: {
       type: "object",
-      properties: { limit: { type: "integer", description: "返回最近几个 App，默认 10" } }
+      properties: {
+        range: {
+          type: "string",
+          enum: ["today", "yesterday", "last_6h", "last_12h", "last_24h"],
+          description: "时间范围，默认 last_24h。today=今天0点至今，yesterday=昨天一整天"
+        },
+        limit: { type: "integer", description: "时间轴最多显示几段，默认 20" },
+        gap_minutes: { type: "integer", description: "多少分钟没动静才算空白段，默认 40" }
+      }
     }
   },
   {
@@ -93,7 +202,7 @@ export default async function handler(req, res) {
       result: {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "查岗 MCP", version: "1.0" }
+        serverInfo: { name: "查岗 MCP", version: "2.0" }
       }
     });
   }
