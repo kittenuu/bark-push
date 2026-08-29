@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="theme-color" content="#FFFFFF" />
+<title>对话</title>
+<style>
+  :root{
+    --bg:#FFFFFF;
+    --bubble-left:#FFF3E8;
+    --bubble-right:#FAD8DF;
+    --accent:#ffc9d7;
+    --accent-deep:#F29DB0;
+    --input-bg:#FFFCF6;
+    --input-line:#EBD9C6;
+    --text:#4A4149;
+    --text-soft:#8C7F80;
+    --muted:#C4B5AE;
+    --shadow:0 2px 10px rgba(242,157,176,.10);
+    color-scheme:light;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    overflow:hidden;
+  }
+
+  .app{
+    display:flex;
+    flex-direction:column;
+    height:100dvh;
+    max-width:820px;
+    margin:0 auto;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  .topbar{
+    flex:none;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:calc(env(safe-area-inset-top) + 14px) 18px 14px;
+    background:rgba(255,255,255,.86);
+    backdrop-filter:saturate(160%) blur(12px);
+    -webkit-backdrop-filter:saturate(160%) blur(12px);
+    border-bottom:1px solid #F6EAE0;
+  }
+  .avatar{
+    width:34px;height:34px;flex:none;
+    border-radius:50%;
+    background:var(--bubble-right);
+    display:grid;place-items:center;
+    font-size:15px;font-weight:600;color:#fff;
+    box-shadow:var(--shadow);
+  }
+  .who{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+  .who b{font-size:15px;font-weight:600;letter-spacing:.02em}
+  .who span{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-deep)}
+  .clear{
+    margin-left:auto;
+    border:1px solid var(--input-line);
+    background:var(--input-bg);
+    color:var(--text-soft);
+    font-size:12px;
+    padding:6px 12px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:.18s;
+  }
+  .clear:active{transform:scale(.96)}
+  .clear:hover{border-color:var(--accent);color:var(--accent-deep)}
+
+  /* ---------- 消息区 ---------- */
+  .stream{
+    flex:1 1 auto;
+    overflow-y:auto;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+    padding:20px 16px 8px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    scrollbar-width:thin;
+    scrollbar-color:#F3E3E8 transparent;
+  }
+  .stream::-webkit-scrollbar{width:6px}
+  .stream::-webkit-scrollbar-thumb{background:#F3E3E8;border-radius:3px}
+
+  .stamp{
+    align-self:center;
+    font-size:11px;
+    color:var(--muted);
+    padding:2px 10px;
+    letter-spacing:.04em;
+  }
+
+  .row{display:flex;max-width:100%;animation:rise .26s cubic-bezier(.2,.8,.3,1)}
+  .row.me{justify-content:flex-end}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .bubble{
+    position:relative;
+    max-width:76%;
+    padding:11px 15px;
+    font-size:15px;
+    line-height:1.65;
+    word-break:break-word;
+    white-space:pre-wrap;
+    box-shadow:var(--shadow);
+  }
+  .row.ai .bubble{
+    background:var(--bubble-left);
+    border-radius:18px 18px 18px 6px;
+  }
+  .row.me .bubble{
+    background:var(--bubble-right);
+    border-radius:18px 18px 6px 18px;
+  }
+
+  /* 打字中 */
+  .typing{display:flex;gap:5px;align-items:center;padding:4px 2px}
+  .typing i{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--accent-deep);opacity:.55;
+    animation:blink 1.25s infinite ease-in-out;
+  }
+  .typing i:nth-child(2){animation-delay:.18s}
+  .typing i:nth-child(3){animation-delay:.36s}
+  @keyframes blink{0%,60%,100%{opacity:.28;transform:translateY(0)}30%{opacity:.9;transform:translateY(-3px)}}
+
+  /* ---------- 输入区 ---------- */
+  .composer{
+    flex:none;
+    padding:10px 14px calc(env(safe-area-inset-bottom) + 12px);
+    background:var(--bg);
+  }
+  .box{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    background:var(--input-bg);
+    border:1.5px solid var(--input-line);
+    border-radius:22px;
+    padding:6px 6px 6px 16px;
+    transition:border-color .18s, box-shadow .18s;
+  }
+  .box:focus-within{
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(255,201,215,.22);
+  }
+  textarea{
+    flex:1 1 auto;
+    border:0;background:transparent;outline:none;resize:none;
+    color:var(--text);
+    font:inherit;
+    line-height:1.55;
+    max-height:132px;
+    padding:8px 0;
+    margin:0;
+  }
+  textarea::placeholder{color:var(--muted)}
+
+  .send{
+    flex:none;
+    width:38px;height:38px;
+    border:0;border-radius:50%;
+    background:var(--accent);
+    display:grid;place-items:center;
+    cursor:pointer;
+    transition:transform .15s, opacity .15s, background .15s;
+    box-shadow:0 2px 8px rgba(255,201,215,.55);
+  }
+  .send svg{width:18px;height:18px;fill:#fff}
+  .send:active{transform:scale(.9)}
+  .send:disabled{opacity:.45;cursor:default;box-shadow:none}
+
+  .hint{
+    text-align:center;
+    font-size:11px;
+    color:var(--muted);
+    padding:8px 0 0;
+    letter-spacing:.03em;
+  }
+
+  @media (max-width:400px){
+    .bubble{max-width:82%}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="avatar">C</div>
+    <div class="who">
+      <b>Claude</b>
+      <span><i class="dot"></i>在线</span>
+    </div>
+    <button class="clear" id="clear" type="button">清空</button>
+  </header>
+
+  <main class="stream" id="stream" aria-live="polite"></main>
+
+  <footer class="composer">
+    <div class="box">
+      <textarea id="input" rows="1" placeholder="说点什么…" autocomplete="off"></textarea>
+      <button class="send" id="send" type="button" aria-label="发送" disabled>
+        <svg viewBox="0 0 24 24"><path d="M3.4 20.4 21.9 12 3.4 3.6 3.4 10.1 16.5 12 3.4 13.9z"/></svg>
+      </button>
+    </div>
+    <div class="hint">Enter 发送 · Shift + Enter 换行</div>
+  </footer>
+
+</div>
+
+<script>
+/* ===== 后端地址：接你 VPS 的接口，留空则走本地演示回复 ===== */
+const API = "";                    // 例如 "https://your-vps.com/api/chat"
+const API_HEADERS = {"Content-Type":"application/json"};
+
+const stream = document.getElementById("stream");
+const input  = document.getElementById("input");
+const send   = document.getElementById("send");
+
+let history = [];      // [{role:"user"|"assistant", content:"..."}]
+let busy = false;
+
+/* ---------- 渲染 ---------- */
+function stamp(){
+  const d = new Date();
+  const t = d.toTimeString().slice(0,5);
+  const last = stream.querySelector(".stamp:last-of-type");
+  if (last && last.textContent === t) return;
+  const el = document.createElement("div");
+  el.className = "stamp";
+  el.textContent = t;
+  stream.appendChild(el);
+}
+
+function bubble(who, text){
+  const row = document.createElement("div");
+  row.className = "row " + who;
+  const b = document.createElement("div");
+  b.className = "bubble";
+  b.textContent = text;                 // textContent：不解析 HTML，防注入
+  row.appendChild(b);
+  stream.appendChild(row);
+  scroll();
+  return b;
+}
+
+function typing(){
+  const row = document.createElement("div");
+  row.className = "row ai";
+  row.innerHTML = '<div class="bubble"><div class="typing"><i></i><i></i><i></i></div></div>';
+  stream.appendChild(row);
+  scroll();
+  return row;
+}
+
+function scroll(){
+  requestAnimationFrame(() => stream.scrollTo({top: stream.scrollHeight, behavior:"smooth"}));
+}
+
+/* ---------- 输入框 ---------- */
+function resize(){
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 132) + "px";
+  send.disabled = busy || !input.value.trim();
+}
+input.addEventListener("input", resize);
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing){
+    e.preventDefault();
+    submit();
+  }
+});
+send.addEventListener("click", submit);
+
+document.getElementById("clear").addEventListener("click", () => {
+  history = [];
+  stream.innerHTML = "";
+  greet();
+});
+
+/* ---------- 发送 ---------- */
+async function submit(){
+  const text = input.value.trim();
+  if (!text || busy) return;
+
+  busy = true;
+  input.value = "";
+  resize();
+  send.disabled = true;
+
+  stamp();
+  bubble("me", text);
+  history.push({role:"user", content:text});
+
+  const wait = typing();
+
+  try {
+    const reply = await ask(text);
+    wait.remove();
+    bubble("ai", reply);
+    history.push({role:"assistant", content:reply});
+  } catch (err) {
+    wait.remove();
+    bubble("ai", "没连上：" + err.message);
+  } finally {
+    busy = false;
+    resize();
+    input.focus();
+  }
+}
+
+async function ask(text){
+  if (!API){
+    await new Promise(r => setTimeout(r, 700));
+    return "（演示模式）把页面顶部的 API 改成你 VPS 的接口地址，我就接上了。你刚说：" + text;
+  }
+  const r = await fetch(API, {
+    method: "POST",
+    headers: API_HEADERS,
+    body: JSON.stringify({ message: text, history })
+  });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const data = await r.json().catch(() => null);
+  return (data && (data.reply || data.content || data.message)) || "（没收到内容）";
+}
+
+/* ---------- 开场 ---------- */
+function greet(){
+  stamp();
+  bubble("ai", "在的。想说什么？");
+}
+greet();
+resize();
+</script>
+</body>
+</html>
