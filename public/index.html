@@ -8,16 +8,16 @@
 <style>
   :root{
     --bg:#FFFFFF;
-    --bubble-left:#FFF3E8;
-    --bubble-right:#FAD8DF;
-    --accent:#ffc9d7;
-    --accent-deep:#F29DB0;
-    --input-bg:#FFFCF6;
-    --input-line:#EBD9C6;
-    --text:#4A4149;
-    --text-soft:#8C7F80;
-    --muted:#C4B5AE;
-    --shadow:0 2px 10px rgba(242,157,176,.10);
+    --pink-100:#FFF4F7;   /* 最浅，输入框底 */
+    --pink-200:#FFE8EE;   /* 左气泡 */
+    --pink-300:#FFD3E0;   /* 分隔线 / 轮廓 */
+    --pink-400:#FFC9D7;   /* 主色，发送键 */
+    --pink-500:#FFBCCD;   /* 右气泡 */
+    --pink-600:#F29DB0;   /* 深粉，点缀 */
+    --text:#5A4750;
+    --text-soft:#A98894;
+    --muted:#D8B6C2;
+    --shadow:0 2px 12px rgba(242,157,176,.16);
     color-scheme:light;
   }
 
@@ -46,36 +46,46 @@
     align-items:center;
     gap:10px;
     padding:calc(env(safe-area-inset-top) + 14px) 18px 14px;
-    background:rgba(255,255,255,.86);
+    background:rgba(255,255,255,.88);
     backdrop-filter:saturate(160%) blur(12px);
     -webkit-backdrop-filter:saturate(160%) blur(12px);
-    border-bottom:1px solid #F6EAE0;
+    border-bottom:1px solid var(--pink-200);
   }
   .avatar{
     width:34px;height:34px;flex:none;
     border-radius:50%;
-    background:var(--bubble-right);
+    background:linear-gradient(145deg,var(--pink-400),var(--pink-600));
     display:grid;place-items:center;
-    font-size:15px;font-weight:600;color:#fff;
-    box-shadow:var(--shadow);
+    color:#fff;
+    box-shadow:0 2px 8px rgba(242,157,176,.45);
   }
+  .avatar svg{width:17px;height:17px;fill:#fff}
   .who{display:flex;flex-direction:column;line-height:1.25;min-width:0}
   .who b{font-size:15px;font-weight:600;letter-spacing:.02em}
-  .who span{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
-  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-deep)}
+  .who span{font-size:11.5px;color:var(--text-soft);display:flex;align-items:center;gap:5px}
+  .dot{
+    width:6px;height:6px;border-radius:50%;background:var(--pink-600);
+    box-shadow:0 0 0 0 rgba(242,157,176,.6);
+    animation:pulse 2.4s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(242,157,176,.55)}
+    70%{box-shadow:0 0 0 6px rgba(242,157,176,0)}
+    100%{box-shadow:0 0 0 0 rgba(242,157,176,0)}
+  }
   .clear{
     margin-left:auto;
-    border:1px solid var(--input-line);
-    background:var(--input-bg);
-    color:var(--text-soft);
+    border:1px solid var(--pink-300);
+    background:var(--pink-100);
+    color:var(--pink-600);
     font-size:12px;
-    padding:6px 12px;
+    padding:6px 13px;
     border-radius:999px;
     cursor:pointer;
     transition:.18s;
   }
+  .clear:hover{background:var(--pink-200);border-color:var(--pink-400)}
   .clear:active{transform:scale(.96)}
-  .clear:hover{border-color:var(--accent);color:var(--accent-deep)}
 
   /* ---------- 消息区 ---------- */
   .stream{
@@ -88,10 +98,10 @@
     flex-direction:column;
     gap:14px;
     scrollbar-width:thin;
-    scrollbar-color:#F3E3E8 transparent;
+    scrollbar-color:var(--pink-300) transparent;
   }
   .stream::-webkit-scrollbar{width:6px}
-  .stream::-webkit-scrollbar-thumb{background:#F3E3E8;border-radius:3px}
+  .stream::-webkit-scrollbar-thumb{background:var(--pink-300);border-radius:3px}
 
   .stamp{
     align-self:center;
@@ -101,9 +111,9 @@
     letter-spacing:.04em;
   }
 
-  .row{display:flex;max-width:100%;animation:rise .26s cubic-bezier(.2,.8,.3,1)}
+  .row{display:flex;max-width:100%;animation:rise .28s cubic-bezier(.2,.8,.3,1)}
   .row.me{justify-content:flex-end}
-  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes rise{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
 
   .bubble{
     position:relative;
@@ -116,11 +126,12 @@
     box-shadow:var(--shadow);
   }
   .row.ai .bubble{
-    background:var(--bubble-left);
+    background:var(--pink-200);
     border-radius:18px 18px 18px 6px;
   }
   .row.me .bubble{
-    background:var(--bubble-right);
+    background:var(--pink-500);
+    color:#6B4652;
     border-radius:18px 18px 6px 18px;
   }
 
@@ -128,7 +139,7 @@
   .typing{display:flex;gap:5px;align-items:center;padding:4px 2px}
   .typing i{
     width:6px;height:6px;border-radius:50%;
-    background:var(--accent-deep);opacity:.55;
+    background:var(--pink-600);opacity:.55;
     animation:blink 1.25s infinite ease-in-out;
   }
   .typing i:nth-child(2){animation-delay:.18s}
@@ -145,15 +156,15 @@
     display:flex;
     align-items:flex-end;
     gap:10px;
-    background:var(--input-bg);
-    border:1.5px solid var(--input-line);
+    background:var(--pink-100);
+    border:1.5px solid var(--pink-300);
     border-radius:22px;
     padding:6px 6px 6px 16px;
     transition:border-color .18s, box-shadow .18s;
   }
   .box:focus-within{
-    border-color:var(--accent);
-    box-shadow:0 0 0 3px rgba(255,201,215,.22);
+    border-color:var(--pink-400);
+    box-shadow:0 0 0 3px rgba(255,201,215,.35);
   }
   textarea{
     flex:1 1 auto;
@@ -171,15 +182,18 @@
     flex:none;
     width:38px;height:38px;
     border:0;border-radius:50%;
-    background:var(--accent);
+    background:linear-gradient(145deg,var(--pink-400),var(--pink-600));
     display:grid;place-items:center;
     cursor:pointer;
-    transition:transform .15s, opacity .15s, background .15s;
-    box-shadow:0 2px 8px rgba(255,201,215,.55);
+    transition:transform .15s, opacity .15s, filter .15s;
+    box-shadow:0 2px 9px rgba(242,157,176,.5);
   }
   .send svg{width:18px;height:18px;fill:#fff}
   .send:active{transform:scale(.9)}
-  .send:disabled{opacity:.45;cursor:default;box-shadow:none}
+  .send:disabled{
+    background:var(--pink-300);
+    opacity:.7;cursor:default;box-shadow:none;
+  }
 
   .hint{
     text-align:center;
@@ -198,7 +212,9 @@
 <div class="app">
 
   <header class="topbar">
-    <div class="avatar">C</div>
+    <div class="avatar">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-8-4.8-8-10.2A4.8 4.8 0 0 1 12 7.6 4.8 4.8 0 0 1 20 10.8C20 16.2 12 21 12 21z"/></svg>
+    </div>
     <div class="who">
       <b>Claude</b>
       <span><i class="dot"></i>在线</span>
@@ -234,8 +250,7 @@ let busy = false;
 
 /* ---------- 渲染 ---------- */
 function stamp(){
-  const d = new Date();
-  const t = d.toTimeString().slice(0,5);
+  const t = new Date().toTimeString().slice(0,5);
   const last = stream.querySelector(".stamp:last-of-type");
   if (last && last.textContent === t) return;
   const el = document.createElement("div");
